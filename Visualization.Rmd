@@ -9,3 +9,162 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Set up the libraries
+
+```{r}
+library(tidyverse)
+library(ggridges)
+```
+
+Data importing
+
+```{r data_import, cache=TRUE}
+library(rnoaa)
+
+weather_df = 
+  rnoaa::meteo_pull_monitors(c("USW00094728", "USC00519397", "USS0023B17S"),
+                      var = c("PRCP", "TMIN", "TMAX"), 
+                      date_min = "2017-01-01",
+                      date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY", 
+                      USC00519397 = "Waikiki_HA",
+                      USS0023B17S = "Waterhole_WA"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+weather_df
+
+
+```
+
+Start a plot
+
+```{r}
+
+#aes tells ggplot the specific mapping 
+#use the plus sign to tell ggplot what kind of plot you want
+
+ggplot(weather_df, aes(x = tmin, y = tmax)) + 
+  geom_point()
+
+```
+
+The code below could be used instead to produce the same figure. Using this style can be helpful if you want to do some pre-processing before making your plot but don’t want to save the intermediate data.
+
+```{r}
+weather_df %>%
+  filter(name == "CentralPark_NY")%>%
+  ggplot(aes(x = tmin, y = tmax)) + 
+  geom_point()
+```
+
+Adding color
+
+```{r}
+ggplot(weather_df, aes(x = tmin, y = tmax)) + 
+  geom_point(aes(color = name))
+```
+
+Adding a smooth curve (adding a geom) and make the data more transparent
+
+```{r}
+ggplot(weather_df, aes(x = tmin, y = tmax)) + 
+  geom_point(aes(color = name), alpha = .5) +
+  geom_smooth(se = FALSE)
+
+#se = False tells ggplot to remove the standard error bars
+#alpha = the level in which a point is transparent [0,1]
+```
+
+Have a smooth curve for each group (instead of a global one)
+
+```{r}
+ggplot(weather_df, aes(x = tmin, y = tmax, color = name)) + 
+  geom_point(alpha = .5) +
+  geom_smooth(se = FALSE) 
+```
+
+Splitting the groups 
+
+```{r}
+ggplot(weather_df, aes(x = tmin, y = tmax, color = name)) + 
+  geom_point(alpha = .5) +
+  geom_smooth(se = FALSE) + 
+  facet_grid(. ~ name)
+
+#facet grid splits the groups
+```
+
+Size of points based on a specific variable
+
+```{r}
+ggplot(weather_df, aes(x = date, y = tmax, color = name)) + 
+  geom_point(aes(size = prcp), alpha = .5) +
+  geom_smooth(se = FALSE) + 
+  facet_grid(. ~ name)
+
+#geom_line connects the dots with a line
+```
+
+Write a code chain that starts with weather_df; focuses only on Central Park, converts temperatures to Fahrenheit, makes a scatterplot of min vs. max temperature, and overlays a linear regression line (using options in geom_smooth())
+
+```{r}
+weather_df %>% 
+  filter(name == "CentralPark_NY") %>% 
+  mutate(tmax_fahr = tmax * (9 / 5) + 32,
+         tmin_fahr = tmin * (9 / 5) + 32) %>% 
+  ggplot(aes(x = tmin_fahr, y = tmax_fahr)) +
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "lm", se = FALSE)
+
+```
+
+Understanding the distribution of the data (univariate plots)
+
+```{r}
+ggplot(weather_df, aes(x = tmax)) + 
+  geom_histogram()
+```
+
+You can play around with things like the bin width and set the fill color using an aesthetic mapping.
+
+```{r}
+ggplot(weather_df, aes(x = tmax, fill = name)) + 
+  geom_histogram(position = "dodge", binwidth = 2)
+```
+
+The position = "dodge" places the bars for each group side-by-side, but this gets sort of hard to understand.  Density plots in place of histograms might be a better idea
+
+```{r}
+ggplot(weather_df, aes(x = tmax, fill = name)) + 
+  geom_density(alpha = .4, adjust = .5, color = "blue")
+```
+
+Boxplots
+
+```{r}
+ggplot(weather_df, aes(y = tmax)) + geom_boxplot()
+ggplot(weather_df, aes(x = name, y = tmax)) + geom_boxplot() #separate boxplots by groups
+
+
+```
+
+Ridge plot
+
+```{r}
+ggplot(weather_df, aes(x = tmax, y = name)) + 
+  geom_density_ridges(scale = .85)
+```
+
+Save and embed a plot
+
+```{r}
+weather_plot = ggplot(weather_df, aes(x = tmin, y = tmax)) + 
+  geom_point(aes(color = name), alpha = .5) 
+
+ggsave("weather_plot.pdf", weather_plot, width = 8, height = 5)
+```
+
+
+
